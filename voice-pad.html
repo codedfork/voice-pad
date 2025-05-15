@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Whiteboard with Voice</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4cc9f0;
+            --dark-color: #1a1a2e;
+            --light-color: #f8f9fa;
+            --success-color: #4ad66d;
+            --warning-color: #f8961e;
+            --danger-color: #ef233c;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            color: var(--dark-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            gap: 1.5rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .canvas-container {
+            flex: 3;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .tools-panel {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--border-radius);
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            box-shadow: var(--shadow);
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+
+        button.active {
+            background-color: var(--secondary-color);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            min-width: 250px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1rem;
+        }
+
+        .panel h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.5rem;
+        }
+
+        .participants-list {
+            list-style: none;
+        }
+
+        .participants-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .participants-list li:last-child {
+            border-bottom: none;
+        }
+
+        .user-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--success-color);
+        }
+
+        .subtitle-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.75rem 1.5rem;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            font-size: 1.1rem;
+            border-radius: var(--border-radius);
+            max-width: 80%;
+            text-align: center;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+
+        .remote-subtitle {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: var(--accent-color);
+            border-radius: var(--border-radius);
+            max-width: 70%;
+            text-align: center;
+            z-index: 90;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .color-option {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .color-option.selected {
+            border-color: var(--dark-color);
+            transform: scale(1.1);
+        }
+
+        .brush-size {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .brush-size input {
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                min-width: 100%;
+            }
+        }
+
+        /* Status indicators */
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .connected {
+            background-color: var(--success-color);
+        }
+
+        .disconnected {
+            background-color: var(--danger-color);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Collaborative Whiteboard with Voice</h1>
+        <p class="subtitle">Draw and communicate in real-time with others</p>
+    </header>
+
+    <div class="main-container">
+        <div class="canvas-container">
+            <div class="tools-panel">
+                <button id="clear-btn">Clear Canvas</button>
+                <div class="color-picker">
+                    <div class="color-option selected" style="background-color: #000000;" data-color="#000000"></div>
+                    <div class="color-option" style="background-color: #ef233c;" data-color="#ef233c"></div>
+                    <div class="color-option" style="background-color: #4361ee;" data-color="#4361ee"></div>
+                    <div class="color-option" style="background-color: #4ad66d;" data-color="#4ad66d"></div>
+                    <div class="color-option" style="background-color: #ffbe0b;" data-color="#ffbe0b"></div>
+                </div>
+                <div class="brush-size">
+                    <span>Size:</span>
+                    <input type="range" id="brush-size" min="1" max="20" value="2">
+                </div>
+            </div>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h2>Participants</h2>
+                <ul class="participants-list" id="participants">
+                    <li><span class="user-indicator"></span> You</li>
+                </ul>
+                <div class="status">
+                    <span class="status-indicator connected" id="connection-status"></span>
+                    <span id="status-text">Connected</span>
+                </div>
+            </div>
+            <div class="panel">
+                <h2>Voice Controls</h2>
+                <button id="mute-btn">Mute Microphone</button>
+                <div class="status">
+                    <span class="status-indicator connected" id="mic-status"></span>
+                    <span id="mic-status-text">Microphone active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="subtitle-container" id="subtitle-box"></div>
+
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <script>
+        // --- UI Elements ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const clearBtn = document.getElementById('clear-btn');
+        const muteBtn = document.getElementById('mute-btn');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const brushSizeInput = document.getElementById('brush-size');
+        const subtitleBox = document.getElementById('subtitle-box');
+        const participantsList = document.getElementById('participants');
+        const connectionStatus = document.getElementById('connection-status');
+        const statusText = document.getElementById('status-text');
+        const micStatus = document.getElementById('mic-status');
+        const micStatusText = document.getElementById('mic-status-text');
+
+        // --- Canvas Setup ---
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth - 32; // accounting for padding
+            canvas.height = Math.min(container.clientHeight - 100, 600);
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        let drawing = false;
+        let currentColor = '#000000';
+        let currentBrushSize = 2;
+
+        // Set initial styles
+        ctx.lineWidth = currentBrushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = currentColor;
+
+        // --- Drawing Events ---
+        function startDrawing(e) {
+            drawing = true;
+            draw(e);
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+
+            // Emit drawing data
+            socket.emit('draw', { 
+                x, 
+                y, 
+                color: currentColor,
+                size: currentBrushSize,
+                drawing: drawing 
+            });
+        }
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            startDrawing(mouseEvent);
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            draw(mouseEvent);
+        });
+
+        canvas.addEventListener('touchend', () => {
+            stopDrawing();
+        });
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+
+        // --- UI Interactions ---
+        clearBtn.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            socket.emit('clear');
+        });
+
+        colorOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                colorOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                currentColor = option.dataset.color;
+                ctx.strokeStyle = currentColor;
+            });
+        });
+
+        brushSizeInput.addEventListener('input', () => {
+            currentBrushSize = brushSizeInput.value;
+            ctx.lineWidth = currentBrushSize;
+        });
+
+        // --- Socket.IO Connection ---
+        const socket = io('http://localhost:3000'); // update to your backend address if needed
+
+        socket.on('connect', () => {
+            connectionStatus.className = 'status-indicator connected';
+            statusText.textContent = 'Connected';
+        });
+
+        socket.on('disconnect', () => {
+            connectionStatus.className = 'status-indicator disconnected';
+            statusText.textContent = 'Disconnected';
+        });
+
+        socket.on('draw', (data) => {
+            ctx.strokeStyle = data.color;
+            ctx.lineWidth = data.size;
+            ctx.lineTo(data.x, data.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(data.x, data.y);
+            ctx.strokeStyle = currentColor; // Reset to local color
+            ctx.lineWidth = currentBrushSize; // Reset to local size
+        });
+
+        socket.on('clear', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        socket.on('participants', (users) => {
+            participantsList.innerHTML = '<li><span class="user-indicator"></span> You</li>';
+            users.forEach(user => {
+                if (user !== socket.id) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="user-indicator"></span> User ${user.substring(0, 4)}`;
+                    participantsList.appendChild(li);
+                }
+            });
+        });
+
+        // --- WebRTC Audio Setup ---
+        const peerConnections = {};
+        let localStream;
+        let isMuted = false;
+
+        muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = !isMuted;
+                });
+            }
+            muteBtn.textContent = isMuted ? 'Unmute Microphone' : 'Mute Microphone';
+            micStatus.className = `status-indicator ${isMuted ? 'disconnected' : 'connected'}`;
+            micStatusText.textContent = isMuted ? 'Microphone muted' : 'Microphone active';
+        });
+
+        async function setupAudio() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                socket.on('new-user', async (id) => {
+                    const pc = createPeerConnection(id);
+                    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    socket.emit('signal', { to: id, offer });
+                });
+
+                socket.on('signal', async ({ from, offer, answer, candidate }) => {
+                    if (!peerConnections[from]) {
+                        const pc = createPeerConnection(from);
+                        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                    }
+                    const pc = peerConnections[from];
+
+                    if (offer) {
+                        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        socket.emit('signal', { to: from, answer });
+                    }
+
+                    if (answer) {
+                        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                    }
+
+                    if (candidate) {
+                        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    }
+                });
+
+                socket.emit('ready');
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                micStatus.className = 'status-indicator disconnected';
+                micStatusText.textContent = 'Microphone access denied';
+                muteBtn.disabled = true;
+            }
+        }
+
+        function createPeerConnection(id) {
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate) {
+                    socket.emit('signal', { to: id, candidate: e.candidate });
+                }
+            };
+
+            pc.ontrack = (e) => {
+                const audio = document.createElement('audio');
+                audio.srcObject = e.streams[0];
+                audio.autoplay = true;
+                audio.volume = 0.8; // Prevent audio feedback
+                document.body.appendChild(audio);
+            };
+
+            pc.onconnectionstatechange = () => {
+                console.log(`Connection state with ${id}: ${pc.connectionState}`);
+            };
+
+            peerConnections[id] = pc;
+            return pc;
+        }
+
+        // --- Speech Recognition ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0].transcript)
+                    .join(' ');
+                
+                subtitleBox.textContent = transcript;
+
+                // Only send final results to reduce network traffic
+                if (event.results[event.results.length - 1].isFinal) {
+                    socket.emit('subtitle', { text: transcript });
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event);
+            };
+
+            recognition.onend = () => {
+                recognition.start(); // Restart if it stops
+            };
+
+            recognition.start();
+        } else {
+            subtitleBox.textContent = "Speech recognition not supported in your browser";
+            console.warn('Speech recognition not supported in this browser.');
+        }
+
+        // Receive subtitles from others
+        socket.on('subtitle', (data) => {
+            const otherSubtitle = document.createElement('div');
+            otherSubtitle.className = 'remote-subtitle';
+            otherSubtitle.textContent = data.text;
+            document.body.appendChild(otherSubtitle);
+
+            setTimeout(() => {
+                otherSubtitle.style.opacity = '0';
+                setTimeout(() => otherSubtitle.remove(), 300);
+            }, 3000);
+        });
+
+        // Initialize
+        setupAudio();
+    </script>
+</body>
+</html>
